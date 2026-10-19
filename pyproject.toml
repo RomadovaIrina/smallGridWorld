@@ -1,0 +1,47 @@
+[project]
+name = "gridrl"
+version = "0.1.0"
+description = "RL for partially observable GridWorld: PPO and Discrete SAC with recurrent memory"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gymnasium>=1.1",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+]
+
+# torch ставится через extra, чтобы на машине с GPU взять CUDA-сборку:
+#   uv sync --extra cpu     # только CPU
+#   uv sync --extra cu126   # NVIDIA GPU (CUDA 12.6)
+[project.optional-dependencies]
+cpu = ["torch>=2.5"]
+cu126 = ["torch>=2.5"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["uv_build>=0.8,<1"]
+build-backend = "uv_build"
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu126" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
