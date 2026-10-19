@@ -1,7 +1,7 @@
 [project]
 name = "gridrl"
 version = "0.1.0"
-description = "RL for partially observable GridWorld: PPO and Discrete SAC with recurrent memory"
+description = "GridWorld environment with partially observable color observations"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -10,9 +10,6 @@ dependencies = [
     "matplotlib>=3.8",
 ]
 
-# torch ставится через extra, чтобы на машине с GPU взять CUDA-сборку:
-#   uv sync --extra cpu     # только CPU
-#   uv sync --extra cu126   # NVIDIA GPU (CUDA 12.6)
 [project.optional-dependencies]
 cpu = ["torch>=2.5"]
 cu126 = ["torch>=2.5"]

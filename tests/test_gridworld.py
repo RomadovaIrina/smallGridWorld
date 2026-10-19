@@ -3,16 +3,14 @@ import numpy as np
 import pytest
 from gymnasium.utils.env_checker import check_env
 
-import gridrl.envs  # noqa: F401  (регистрирует GridWorld-v0)
 from gridrl.envs import GridWorldEnv, build_setup, make_env, optimal_stats
-from gridrl.envs import grid_core as core
-from gridrl.envs.grid_core import DOWN, LEFT, RIGHT, UP
+from gridrl.envs.setups import bfs_distances
+from gridrl.envs.gridworld import DOWN, LEFT, RIGHT, UP
 
 N_COLORS = 3
 
 
 def small_env(**kw):
-    """3x3, цвета пола по строкам 0/1/2, препятствие в (1, 1), цель в (2, 2)."""
     floor = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
     obstacles = np.zeros((3, 3), dtype=bool)
     obstacles[1, 1] = True
@@ -49,7 +47,7 @@ def test_wall_bump_see_obstacle_true():
     env.reset(seed=0, options={"pos": (0, 0)})
     obs, reward, term, trunc, info = env.step(UP)
     assert tuple(info["pos"]) == (0, 0) and info["bumped"]
-    assert color_of(obs) == core.wall_color(N_COLORS)
+    assert color_of(obs) == N_COLORS + 2
     assert reward == 0.0 and not term and not trunc
 
 
@@ -58,7 +56,7 @@ def test_wall_bump_see_obstacle_false():
     env.reset(seed=0, options={"pos": (0, 0)})
     obs, *_, info = env.step(LEFT)
     assert tuple(info["pos"]) == (0, 0) and info["bumped"]
-    assert color_of(obs) == 0  # видит свою клетку
+    assert color_of(obs) == 0
 
 
 def test_obstacle_bump():
@@ -66,7 +64,7 @@ def test_obstacle_bump():
     env.reset(seed=0, options={"pos": (0, 1)})
     obs, *_, info = env.step(DOWN)
     assert tuple(info["pos"]) == (0, 1) and info["bumped"]
-    assert color_of(obs) == core.obstacle_color(N_COLORS)
+    assert color_of(obs) == N_COLORS + 1
 
 
 def test_moves_clockwise():
@@ -84,7 +82,7 @@ def test_goal_reward_and_termination():
     env.reset(seed=0, options={"pos": (2, 1)})
     obs, reward, term, trunc, _ = env.step(RIGHT)
     assert reward == 1.0 and term and not trunc
-    assert color_of(obs) == core.goal_color(N_COLORS)
+    assert color_of(obs) == N_COLORS
 
 
 def test_truncation():
@@ -108,8 +106,8 @@ def test_start_weights_masked_and_normalized():
     weights[0, 0] = 5.0
     env = small_env(pos_agent=weights)
     probs = env.start_probs.reshape(3, 3)
-    assert probs[1, 1] == 0.0  # препятствие
-    assert probs[2, 2] == 0.0  # цель
+    assert probs[1, 1] == 0.0
+    assert probs[2, 2] == 0.0
     assert np.isclose(probs.sum(), 1.0)
     assert np.isclose(probs[0, 0], 5.0 / 11.0)
 
@@ -147,8 +145,8 @@ def test_setups(setup_id, n_obs, n_obstacles):
         env = make_env(setup_id, seed=seed)
         assert env.observation_space.shape == (n_obs,)
         assert env.obstacle_mask.sum() == n_obstacles
-        dist = core.bfs_distances(~env.obstacle_mask, env.pos_goal)
-        assert (dist[~env.obstacle_mask] >= 0).all()  # цель достижима отовсюду
+        dist = bfs_distances(~env.obstacle_mask, env.pos_goal)
+        assert (dist[~env.obstacle_mask] >= 0).all()
 
 
 def test_setup_1_colors_unique():

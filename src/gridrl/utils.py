@@ -1,5 +1,3 @@
-"""Общие утилиты: выбор устройства и сиды (чтобы код одинаково работал на CPU и GPU)."""
-
 from __future__ import annotations
 
 import random
@@ -8,7 +6,6 @@ import numpy as np
 
 
 def get_device(device: str = "auto"):
-    """'auto' — CUDA, если доступна, иначе CPU; иначе — явно заданное устройство."""
     import torch
 
     if device == "auto":

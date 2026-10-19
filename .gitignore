@@ -7,5 +7,4 @@ runs/
 data/
 *.pt
 
-# текст задания не кладём в репозиторий
 test-task-hard.pdf

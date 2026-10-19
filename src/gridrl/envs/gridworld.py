@@ -1,38 +1,27 @@
-"""GridWorld с частично наблюдаемыми «цветными» клетками (gymnasium.Env)."""
-
 from __future__ import annotations
 
+import colorsys
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from gridrl.envs import grid_core as core
-from gridrl.envs.render import render_ansi, render_rgb
 
+UP, RIGHT, DOWN, LEFT = 0, 1, 2, 3
+ACTION_DELTAS = ((-1, 0), (0, 1), (1, 0), (0, -1))
 OBS_MODES = ("color", "coords")
 
 
 class GridWorldEnv(gym.Env):
-    """Лабиринт (h, w), окружённый стеной; цель агента — дойти до pos_goal.
+    """GridWorld с one-hot наблюдением цвета текущей клетки.
 
-    Параметры:
-        floor_colors: (h, w) int — покраска пола значениями 0..n_colors-1
-            (значения в клетках препятствий и цели игнорируются).
-        n_colors: число цветов пола; по умолчанию max(floor_colors) + 1.
-        obstacle_mask: (h, w) bool — внутренние препятствия; по умолчанию нет.
-        pos_goal: (row, col) цели, фиксирована на всё обучение.
-        pos_agent: None | (row, col) | (h, w) веса — распределение стартов,
-            см. grid_core.start_distribution.
-        see_obstacle: при попытке шагнуть в стену/препятствие агент видит её
-            цвет (True) или цвет текущей клетки (False).
-        max_steps: лимит шагов эпизода (truncation); по умолчанию 4 * h * w.
-        obs_mode: "color" — one-hot цвета клетки (n_colors + 3);
-            "coords" — one-hot позиции агента (h * w), отладочный режим (MDP).
-
-    Награда: 1 при попадании в цель (эпизод завершается), иначе 0.
-    В info всегда есть позиция агента ("pos") для отладки и визуализации.
+    floor_colors и obstacle_mask имеют форму (h, w), координаты — (row, col).
+    pos_agent задаёт фиксированный старт или веса стартовых позиций.
+    При see_obstacle=True столкновение даёт наблюдение цвета преграды.
+    obs_mode="coords" включает one-hot позиции для отладки.
+    Лимит эпизода по умолчанию — 4 * h * w шагов.
+    Награда за достижение цели — 1, за остальные шаги — 0.
     """
 
     metadata = {"render_modes": ["rgb_array", "ansi"], "render_fps": 4}
@@ -83,74 +72,73 @@ class GridWorldEnv(gym.Env):
         self.obs_mode = obs_mode
         self.render_mode = render_mode
 
-        self.color_map, self.passable = core.build_padded_maps(
-            floor_colors, obstacle_mask, pos_goal, self.n_colors
-        )
-        self.start_probs = core.start_distribution(pos_agent, obstacle_mask, pos_goal)
+        self.goal_color = self.n_colors
+        self.obstacle_color = self.n_colors + 1
+        self.wall_color = self.n_colors + 2
+        self.n_obs_colors = self.n_colors + 3
 
-        self.n_obs_colors = core.n_obs_colors(self.n_colors)
+        # Рамка стены позволяет проверять соседнюю клетку без выхода за массив.
+        self.color_map = np.full((self.h + 2, self.w + 2), self.wall_color, dtype=np.int64)
+        self.color_map[1:-1, 1:-1] = np.where(obstacle_mask, self.obstacle_color, floor_colors)
+        self.color_map[pos_goal[0] + 1, pos_goal[1] + 1] = self.goal_color
+        self.passable = np.zeros((self.h + 2, self.w + 2), dtype=bool)
+        self.passable[1:-1, 1:-1] = ~obstacle_mask
+        self.start_probs = self._start_distribution(pos_agent)
         obs_dim = self.n_obs_colors if obs_mode == "color" else self.h * self.w
         self.observation_space = spaces.Box(0.0, 1.0, shape=(obs_dim,), dtype=np.float32)
-        self.action_space = spaces.Discrete(core.N_ACTIONS)
+        self.action_space = spaces.Discrete(4)
 
-        # Состояние эпизода (padded-координаты).
-        self._pos = np.zeros(2, dtype=np.int64)
+        self._pos = (0, 0)
         self._color = 0
         self._t = 0
-        self._last_action: int | None = None
-
-    # --- gymnasium API -------------------------------------------------------
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         super().reset(seed=seed)
         options = options or {}
-        if "pos" in options:  # принудительный старт — для отладки и тестов
+        if "pos" in options:
             r, c = options["pos"]
         else:
             idx = self.np_random.choice(self.h * self.w, p=self.start_probs)
             r, c = divmod(int(idx), self.w)
-        self._pos = np.array([r + 1, c + 1], dtype=np.int64)
+        self._pos = (int(r) + 1, int(c) + 1)
         self._color = int(self.color_map[r + 1, c + 1])
         self._t = 0
-        self._last_action = None
         return self._obs(), self._info(bumped=False)
 
     def step(self, action):
         action = int(action)
         if not self.action_space.contains(action):
             raise ValueError(f"недопустимое действие {action}")
-        new_pos, target, bumped = core.step_positions(
-            self.passable, self._pos[None], np.array([action])
-        )
-        self._pos = new_pos[0]
-        self._color = int(
-            core.observed_colors(self.color_map, new_pos, target, bumped, self.see_obstacle)[0]
-        )
+        r, c = self._pos
+        dr, dc = ACTION_DELTAS[action]
+        target = (r + dr, c + dc)
+        bumped = not self.passable[target]
+        if not bumped:
+            self._pos = target
+
+        seen = target if bumped and self.see_obstacle else self._pos
+        self._color = int(self.color_map[seen])
         self._t += 1
-        self._last_action = action
 
         terminated = (self._pos[0] - 1, self._pos[1] - 1) == self.pos_goal
         truncated = (not terminated) and self._t >= self.max_steps
         reward = 1.0 if terminated else 0.0
-        return self._obs(), reward, terminated, truncated, self._info(bumped=bool(bumped[0]))
+        return self._obs(), reward, terminated, truncated, self._info(bumped=bumped)
 
     def render(self):
         if self.render_mode == "rgb_array":
-            return render_rgb(self, agent_pos=self.agent_pos)
+            return self._render_rgb()
         if self.render_mode == "ansi":
-            return render_ansi(self, agent_pos=self.agent_pos)
+            return self._render_ansi()
         return None
-
-    # --- helpers -------------------------------------------------------------
 
     @property
     def agent_pos(self) -> tuple[int, int]:
-        """Позиция агента во внутренних координатах (row, col)."""
+        """Позиция (row, col) без учёта рамки стены."""
         return int(self._pos[0]) - 1, int(self._pos[1]) - 1
 
     @property
     def inner_color_map(self) -> np.ndarray:
-        """Карта цветов внутренней области (h, w), включая цель и препятствия."""
         return self.color_map[1:-1, 1:-1]
 
     def _obs(self) -> np.ndarray:
@@ -169,3 +157,75 @@ class GridWorldEnv(gym.Env):
             "color": self._color,
             "bumped": bumped,
         }
+
+    def _start_distribution(self, pos_agent):
+        h, w = self.h, self.w
+        allowed = ~self.obstacle_mask
+        allowed[self.pos_goal] = False
+
+        if pos_agent is None:
+            weights = allowed.astype(np.float64)
+        else:
+            arr = np.asarray(pos_agent)
+            if arr.shape == (2,):
+                r, c = int(arr[0]), int(arr[1])
+                if not (0 <= r < h and 0 <= c < w):
+                    raise ValueError(f"pos_agent {(r, c)} вне области {(h, w)}")
+                if not allowed[r, c]:
+                    raise ValueError(f"pos_agent {(r, c)} — препятствие или цель")
+                weights = np.zeros((h, w))
+                weights[r, c] = 1.0
+            elif arr.shape == (h, w):
+                if (arr < 0).any():
+                    raise ValueError("веса pos_agent должны быть неотрицательными")
+                weights = np.where(allowed, arr.astype(np.float64), 0.0)
+            else:
+                raise ValueError(
+                    f"pos_agent: ожидалась пара координат или массив {(h, w)}, получено {arr.shape}"
+                )
+
+        total = weights.sum()
+        if total <= 0:
+            raise ValueError("pos_agent не оставляет ни одной допустимой стартовой клетки")
+        return (weights / total).ravel()
+
+    def _render_rgb(self, cell_px=24):
+        hues = np.linspace(0.0, 1.0, self.n_colors, endpoint=False)
+        floor_rgb = [colorsys.hsv_to_rgb(h, 0.35, 0.95) for h in hues]
+        palette = np.concatenate([
+            (np.array(floor_rgb) * 255).astype(np.uint8),
+            np.array([(40, 200, 60), (60, 60, 60), (20, 20, 20)], dtype=np.uint8),
+        ])
+        img = palette[self.color_map]
+        img = np.repeat(np.repeat(img, cell_px, axis=0), cell_px, axis=1)
+        img[::cell_px, :] = img[::cell_px, :] * 0.8
+        img[:, ::cell_px] = img[:, ::cell_px] * 0.8
+
+        r, c = self._pos
+        yy, xx = np.mgrid[:cell_px, :cell_px]
+        center = (cell_px - 1) / 2
+        disk = (yy - center) ** 2 + (xx - center) ** 2 <= (cell_px * 0.35) ** 2
+        cell = img[r * cell_px:(r + 1) * cell_px, c * cell_px:(c + 1) * cell_px]
+        cell[disk] = (230, 30, 30)
+        return img
+
+    def _render_ansi(self):
+        symbols = "0123456789abcdefghijklmnopqrstuvwxyz"
+        lines = []
+        for r in range(self.h + 2):
+            row = []
+            for c in range(self.w + 2):
+                code = int(self.color_map[r, c])
+                if (r, c) == self._pos:
+                    ch = "A"
+                elif code == self.wall_color:
+                    ch = "#"
+                elif code == self.obstacle_color:
+                    ch = "X"
+                elif code == self.goal_color:
+                    ch = "G"
+                else:
+                    ch = symbols[code] if code < len(symbols) else "?"
+                row.append(ch)
+            lines.append(" ".join(row))
+        return "\n".join(lines)
