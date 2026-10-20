@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import random
 
 import numpy as np
@@ -13,7 +11,7 @@ def get_device(device: str = "auto"):
     return torch.device(device)
 
 
-def set_seed(seed: int) -> None:
+def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     try:
@@ -32,7 +30,7 @@ def parse_config(config_cls):
     parser = argparse.ArgumentParser()
     for f in fields(config_cls):
         name = "--" + f.name.replace("_", "-")
-        if f.type == "bool":
+        if isinstance(f.default, bool):
             parser.add_argument(name, action=argparse.BooleanOptionalAction, default=f.default)
         else:
             parser.add_argument(name, type=type(f.default), default=f.default)

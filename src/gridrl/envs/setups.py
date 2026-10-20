@@ -1,26 +1,18 @@
-from __future__ import annotations
-
 import gymnasium as gym
 import numpy as np
 
 from gridrl.envs.gridworld import ACTION_DELTAS, GridWorldEnv
 
 
-def random_floor_coloring(h: int, w: int, n_colors: int, rng: np.random.Generator) -> np.ndarray:
+def random_floor_coloring(h, w, n_colors, rng):
     return rng.integers(0, n_colors, size=(h, w))
 
 
-def unique_floor_coloring(h: int, w: int, rng: np.random.Generator) -> np.ndarray:
+def unique_floor_coloring(h, w, rng):
     return rng.permutation(h * w).reshape(h, w)
 
 
-def random_obstacle_mask(
-    h: int,
-    w: int,
-    fraction: float,
-    rng: np.random.Generator,
-    max_tries: int = 1000,
-) -> np.ndarray:
+def random_obstacle_mask(h, w, fraction, rng, max_tries=1000):
     """Расставляет препятствия, сохраняя связность свободных клеток."""
     n_obstacles = int(round(fraction * h * w))
     for _ in range(max_tries):
@@ -43,7 +35,7 @@ SETUPS = {
 }
 
 
-def build_setup(setup_id: int, seed: int = 0) -> dict:
+def build_setup(setup_id, seed=0):
     h, w, n_colors, obstacle_fraction = SETUPS[setup_id]
     rng = np.random.default_rng(seed)
     if n_colors is None:
@@ -63,11 +55,11 @@ def build_setup(setup_id: int, seed: int = 0) -> dict:
     )
 
 
-def make_env(setup_id: int, seed: int = 0, **overrides) -> GridWorldEnv:
+def make_env(setup_id, seed=0, **overrides):
     return GridWorldEnv(**{**build_setup(setup_id, seed), **overrides})
 
 
-def optimal_stats(env: GridWorldEnv, gamma: float = 0.99) -> dict[str, float]:
+def optimal_stats(env, gamma=0.99):
     """Оптимум при известной позиции: средняя длина пути и отдача.
     Для частично наблюдаемой среды отдача служит верхней границей.
     """
@@ -81,7 +73,7 @@ def optimal_stats(env: GridWorldEnv, gamma: float = 0.99) -> dict[str, float]:
     }
 
 
-def bfs_distances(passable_inner: np.ndarray, source: tuple[int, int]) -> np.ndarray:
+def bfs_distances(passable_inner, source):
     """Кратчайшие расстояния по свободным клеткам; -1 для недостижимых."""
     h, w = passable_inner.shape
     dist = np.full((h, w), -1, dtype=np.int64)
@@ -99,7 +91,7 @@ def bfs_distances(passable_inner: np.ndarray, source: tuple[int, int]) -> np.nda
     return dist
 
 
-def make_vec_env(setup_id: int, num_envs: int, seed: int = 0, **overrides) -> gym.vector.SyncVectorEnv:
+def make_vec_env(setup_id, num_envs, seed=0, **overrides):
     """num_envs копий одной карты. SAME_STEP: после конца эпизода step сразу
     возвращает наблюдение нового, а последнее наблюдение старого лежит в info["final_obs"].
     """

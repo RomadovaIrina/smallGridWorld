@@ -6,8 +6,6 @@ clipped-лоссу PPO. Для GRU минибатчи режутся по сре
 последовательности оставались целыми.
 """
 
-from __future__ import annotations
-
 import csv
 import json
 import time
@@ -63,7 +61,7 @@ def compute_gae(rewards, values, dones, next_value, gamma, lam):
     return advantages, advantages + values
 
 
-def train_ppo(cfg: PPOConfig) -> Path:
+def train_ppo(cfg):
     set_seed(cfg.seed)
     device = get_device(cfg.device)
     envs = make_vec_env(

@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 import colorsys
-from typing import Any
 
 import gymnasium as gym
 import numpy as np
@@ -28,15 +25,15 @@ class GridWorldEnv(gym.Env):
 
     def __init__(
         self,
-        floor_colors: np.ndarray,
-        pos_goal: tuple[int, int],
-        n_colors: int | None = None,
-        obstacle_mask: np.ndarray | None = None,
+        floor_colors,
+        pos_goal,
+        n_colors=None,
+        obstacle_mask=None,
         pos_agent=None,
-        see_obstacle: bool = True,
-        max_steps: int | None = None,
-        obs_mode: str = "color",
-        render_mode: str | None = None,
+        see_obstacle=True,
+        max_steps=None,
+        obs_mode="color",
+        render_mode=None,
     ):
         floor_colors = np.asarray(floor_colors, dtype=np.int64)
         if floor_colors.ndim != 2:
@@ -92,7 +89,7 @@ class GridWorldEnv(gym.Env):
         self._color = 0
         self._t = 0
 
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+    def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
         options = options or {}
         if "pos" in options:
@@ -133,15 +130,15 @@ class GridWorldEnv(gym.Env):
         return None
 
     @property
-    def agent_pos(self) -> tuple[int, int]:
+    def agent_pos(self):
         """Позиция (row, col) без учёта рамки стены."""
         return int(self._pos[0]) - 1, int(self._pos[1]) - 1
 
     @property
-    def inner_color_map(self) -> np.ndarray:
+    def inner_color_map(self):
         return self.color_map[1:-1, 1:-1]
 
-    def _obs(self) -> np.ndarray:
+    def _obs(self):
         if self.obs_mode == "color":
             obs = np.zeros(self.n_obs_colors, dtype=np.float32)
             obs[self._color] = 1.0
@@ -151,7 +148,7 @@ class GridWorldEnv(gym.Env):
             obs[r * self.w + c] = 1.0
         return obs
 
-    def _info(self, bumped: bool) -> dict[str, Any]:
+    def _info(self, bumped):
         return {
             "pos": np.array(self.agent_pos, dtype=np.int64),
             "color": self._color,

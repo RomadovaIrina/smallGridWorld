@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import numpy as np
 import torch
 from torch import nn
 
 
-def layer_init(layer: nn.Linear, gain: float = np.sqrt(2)) -> nn.Linear:
+def layer_init(layer, gain=np.sqrt(2)):
     nn.init.orthogonal_(layer.weight, gain)
     nn.init.zeros_(layer.bias)
     return layer
@@ -17,7 +15,7 @@ class Core(nn.Module):
     Без памяти агент видит только текущий цвет (бейзлайн для POMDP).
     """
 
-    def __init__(self, obs_dim: int, n_actions: int, hidden: int = 128, memory: bool = True):
+    def __init__(self, obs_dim, n_actions, hidden=128, memory=True):
         super().__init__()
         self.memory = memory
         self.hidden = hidden
@@ -28,7 +26,7 @@ class Core(nn.Module):
         else:
             self.mlp = nn.Sequential(layer_init(nn.Linear(hidden, hidden)), nn.Tanh())
 
-    def initial_state(self, batch: int, device=None) -> torch.Tensor:
+    def initial_state(self, batch, device=None):
         return torch.zeros(batch, self.hidden, device=device)
 
     def step(self, obs, prev_action, starts, h):
@@ -56,13 +54,12 @@ class Head(nn.Module):
     Используется в DSAC и как актор (логиты), и как критик (Q(s, a) для всех a).
     """
 
-    def __init__(self, obs_dim: int, n_actions: int, hidden: int = 128, memory: bool = True,
-                 gain: float = 1.0):
+    def __init__(self, obs_dim, n_actions, hidden=128, memory=True, gain=1.0):
         super().__init__()
         self.core = Core(obs_dim, n_actions, hidden, memory)
         self.out = layer_init(nn.Linear(hidden, n_actions), gain=gain)
 
-    def initial_state(self, batch: int, device=None) -> torch.Tensor:
+    def initial_state(self, batch, device=None):
         return self.core.initial_state(batch, device)
 
     def step(self, obs, prev_action, starts, h):
@@ -77,14 +74,14 @@ class Head(nn.Module):
 class ActorCritic(nn.Module):
     """Общий Core и две головы: актор (логиты действий) и критик (V(s))."""
 
-    def __init__(self, obs_dim: int, n_actions: int, hidden: int = 128, memory: bool = True):
+    def __init__(self, obs_dim, n_actions, hidden=128, memory=True):
         super().__init__()
         self.n_actions = n_actions
         self.core = Core(obs_dim, n_actions, hidden, memory)
         self.actor = layer_init(nn.Linear(hidden, n_actions), gain=0.01)
         self.critic = layer_init(nn.Linear(hidden, 1), gain=1.0)
 
-    def initial_state(self, batch: int, device=None) -> torch.Tensor:
+    def initial_state(self, batch, device=None):
         return self.core.initial_state(batch, device)
 
     def step(self, obs, prev_action, starts, h):

@@ -6,8 +6,6 @@
 Окно = burn_in шагов «прогрева» памяти + seq_len шагов, на которых считается лосс.
 """
 
-from __future__ import annotations
-
 import csv
 import json
 import time
@@ -59,7 +57,7 @@ class SequenceReplay:
     """Кольцевой буфер формы (время, среда): шаги каждой среды лежат подряд,
     поэтому из него можно доставать окна последовательных шагов для GRU."""
 
-    def __init__(self, capacity: int, num_envs: int, obs_dim: int, n_actions: int, seed: int):
+    def __init__(self, capacity, num_envs, obs_dim, n_actions, seed):
         self.cap = capacity // num_envs
         self.num_envs = num_envs
         self.obs = np.zeros((self.cap, num_envs, obs_dim), dtype=np.float32)
@@ -84,7 +82,7 @@ class SequenceReplay:
         self.ptr = (self.ptr + 1) % self.cap
         self.full = self.full or self.ptr == 0
 
-    def sample(self, batch: int, length: int, device) -> dict[str, torch.Tensor]:
+    def sample(self, batch, length, device):
         """batch окон длины length из случайных сред. Возвращает тензоры (length, batch, ...)."""
         oldest = self.ptr if self.full else 0
         offsets = self.rng.integers(0, len(self) - length + 1, size=batch)
@@ -98,13 +96,13 @@ class SequenceReplay:
         return out
 
 
-def polyak_update(target: torch.nn.Module, source: torch.nn.Module, tau: float) -> None:
+def polyak_update(target, source, tau):
     with torch.no_grad():
         for tp, sp in zip(target.parameters(), source.parameters()):
             tp.lerp_(sp, tau)
 
 
-def train_dsac(cfg: DSACConfig) -> Path:
+def train_dsac(cfg):
     set_seed(cfg.seed)
     device = get_device(cfg.device)
     envs = make_vec_env(
@@ -143,7 +141,7 @@ def train_dsac(cfg: DSACConfig) -> Path:
     buffer = SequenceReplay(cfg.buffer_size, n_envs, obs_dim, n_actions, cfg.seed)
     window = cfg.burn_in + cfg.seq_len + 1  # +1: для последнего шага нужен следующий
 
-    def update() -> dict[str, float]:
+    def update():
         b = buffer.sample(cfg.batch_size, window, device)
         alpha = log_alpha.exp().detach()
         h0 = actor.initial_state(cfg.batch_size, device)

@@ -1,6 +1,6 @@
 # RL for GridWorld
 
-Реализована первая часть тестового задания: клеточная среда GridWorld с наблюдением цвета клетки и четыре конфигурации карт. Алгоритмы обучения пока не реализованы.
+Реализованы клеточная среда GridWorld с наблюдением цвета клетки, четыре конфигурации карт и два агента: PPO (on-policy) и Discrete SAC (off-policy), каждый в вариантах без памяти (MLP) и с памятью (GRU). Реализация наивная, без оптимизаций скорости.
 
 Автор: _ФИО_
 
@@ -9,11 +9,10 @@
 Нужен [uv](https://docs.astral.sh/uv/). Версия Python указана в `.python-version`.
 
 ```bash
-uv sync
+uv sync --extra cpu      # без NVIDIA GPU
+uv sync --extra cu126    # с NVIDIA GPU
 uv run pytest
 ```
-
-Для дальнейшей работы с PyTorch доступны `uv sync --extra cpu` и `uv sync --extra cu126`.
 
 ## Пример
 
@@ -34,12 +33,30 @@ for _ in range(10):
 
 Здесь действия случайные, обучения нет.
 
+## Обучение и графики
+
+```bash
+uv run python scripts/train_ppo.py --setup 2 --memory
+uv run python scripts/train_dsac.py --setup 2 --no-memory --no-soft-q
+uv run python scripts/plot_envs.py
+uv run python scripts/plot_training.py runs/<прогон1> runs/<прогон2> --labels MLP GRU --name setup2
+```
+
+Логи обучения пишутся в `runs/<имя>/` (`metrics.csv`, `config.json`, `model.pt`), в git не попадают. Картинки для отчёта сохраняются в `outputs/`:
+- `outputs/envs/` — карты всех сетапов;
+- `outputs/plots/` — графики обучения: отдача, доля успехов, длина эпизода, лосс и его компоненты, энтропия, вероятность нежадного действия.
+
+Подробный разбор кода — в `docs/walkthrough.md`.
+
 ## Файлы
 
 - `src/gridrl/envs/gridworld.py` — среда: инициализация, старт эпизода, движение, наблюдения и отрисовка.
 - `src/gridrl/envs/setups.py` — генерация карт, четыре конфигурации из задания и расчёт кратчайших расстояний через BFS.
 - `src/gridrl/envs/__init__.py` — импорты и регистрация среды как `GridWorld-v0` в Gymnasium.
-- `src/gridrl/utils.py` — выбор устройства PyTorch и установка seed; самой средой пока не используется.
+- `src/gridrl/agents/networks.py` — сети: MLP или GRU и головы актора/критика.
+- `src/gridrl/agents/ppo.py`, `src/gridrl/agents/dsac.py` — алгоритмы обучения.
+- `src/gridrl/utils.py` — выбор устройства PyTorch, seed, разбор аргументов командной строки.
+- `scripts/` — запуск обучения и построение картинок.
 - `tests/test_gridworld.py` — проверки правил среды и совместимости с Gymnasium.
 
 ## Среда
