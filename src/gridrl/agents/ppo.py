@@ -14,14 +14,13 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from gridrl.agents.networks import ActorCritic
-from gridrl.envs import make_env, optimal_stats
+from gridrl.envs import make_env, make_vec_env, optimal_stats
 from gridrl.utils import get_device, set_seed
 
 
@@ -51,19 +50,6 @@ class PPOConfig:
     run_name: str = ""
 
 
-def make_vec_env(cfg: PPOConfig) -> gym.vector.SyncVectorEnv:
-    def factory():
-        return make_env(
-            cfg.setup, seed=cfg.env_seed, see_obstacle=cfg.see_obstacle, obs_mode=cfg.obs_mode
-        )
-
-    # SAME_STEP: после конца эпизода step сразу возвращает наблюдение нового,
-    # а последнее наблюдение старого лежит в info["final_obs"].
-    return gym.vector.SyncVectorEnv(
-        [factory] * cfg.num_envs, autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
-    )
-
-
 def compute_gae(rewards, values, dones, next_value, gamma, lam):
     """Generalized Advantage Estimation. Все тензоры (T, N); dones[t] — эпизод кончился на шаге t."""
     advantages = torch.zeros_like(rewards)
@@ -80,7 +66,10 @@ def compute_gae(rewards, values, dones, next_value, gamma, lam):
 def train_ppo(cfg: PPOConfig) -> Path:
     set_seed(cfg.seed)
     device = get_device(cfg.device)
-    envs = make_vec_env(cfg)
+    envs = make_vec_env(
+        cfg.setup, cfg.num_envs, seed=cfg.env_seed,
+        see_obstacle=cfg.see_obstacle, obs_mode=cfg.obs_mode,
+    )
     n_envs, T = cfg.num_envs, cfg.rollout_len
     obs_dim = envs.single_observation_space.shape[0]
     n_actions = envs.single_action_space.n

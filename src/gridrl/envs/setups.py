@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gymnasium as gym
 import numpy as np
 
 from gridrl.envs.gridworld import ACTION_DELTAS, GridWorldEnv
@@ -96,3 +97,13 @@ def bfs_distances(passable_inner: np.ndarray, source: tuple[int, int]) -> np.nda
                     nxt.append((rr, cc))
         frontier = nxt
     return dist
+
+
+def make_vec_env(setup_id: int, num_envs: int, seed: int = 0, **overrides) -> gym.vector.SyncVectorEnv:
+    """num_envs копий одной карты. SAME_STEP: после конца эпизода step сразу
+    возвращает наблюдение нового, а последнее наблюдение старого лежит в info["final_obs"].
+    """
+    return gym.vector.SyncVectorEnv(
+        [lambda: make_env(setup_id, seed, **overrides)] * num_envs,
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
+    )

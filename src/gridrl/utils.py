@@ -22,3 +22,18 @@ def set_seed(seed: int) -> None:
         torch.manual_seed(seed)
     except ImportError:
         pass
+
+
+def parse_config(config_cls):
+    """Аргументы командной строки из полей dataclass-конфига: --total-steps 1000, --no-memory."""
+    import argparse
+    from dataclasses import fields
+
+    parser = argparse.ArgumentParser()
+    for f in fields(config_cls):
+        name = "--" + f.name.replace("_", "-")
+        if f.type == "bool":
+            parser.add_argument(name, action=argparse.BooleanOptionalAction, default=f.default)
+        else:
+            parser.add_argument(name, type=type(f.default), default=f.default)
+    return config_cls(**vars(parser.parse_args()))

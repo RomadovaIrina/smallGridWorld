@@ -50,6 +50,30 @@ class Core(nn.Module):
         return torch.stack(outs), h
 
 
+class Head(nn.Module):
+    """Свой Core и линейная голова на n_actions выходов.
+
+    Используется в DSAC и как актор (логиты), и как критик (Q(s, a) для всех a).
+    """
+
+    def __init__(self, obs_dim: int, n_actions: int, hidden: int = 128, memory: bool = True,
+                 gain: float = 1.0):
+        super().__init__()
+        self.core = Core(obs_dim, n_actions, hidden, memory)
+        self.out = layer_init(nn.Linear(hidden, n_actions), gain=gain)
+
+    def initial_state(self, batch: int, device=None) -> torch.Tensor:
+        return self.core.initial_state(batch, device)
+
+    def step(self, obs, prev_action, starts, h):
+        z, h = self.core.step(obs, prev_action, starts, h)
+        return self.out(z), h
+
+    def unroll(self, obs, prev_action, starts, h):
+        z, h = self.core.unroll(obs, prev_action, starts, h)
+        return self.out(z), h
+
+
 class ActorCritic(nn.Module):
     """Общий Core и две головы: актор (логиты действий) и критик (V(s))."""
 
