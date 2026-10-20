@@ -15,11 +15,20 @@ cpu = ["torch>=2.5"]
 cu126 = ["torch>=2.5"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "ipykernel>=7.4.0",
+    "nbconvert>=7.17.2",
+    "pytest>=8",
+]
 
 [build-system]
 requires = ["uv_build>=0.8,<1"]
 build-backend = "uv_build"
+
+# активная версия кода — src_v2/gridrl_v2; старые версии лежат рядом для сравнения
+[tool.uv.build-backend]
+module-root = "src_v2"
+module-name = "gridrl_v2"
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "cu126" }]]

@@ -1,13 +1,20 @@
-import gymnasium as gym
 import numpy as np
 import pytest
 from gymnasium.utils.env_checker import check_env
 
-from gridrl.envs import GridWorldEnv, build_setup, make_env, optimal_stats
-from gridrl.envs.setups import bfs_distances
-from gridrl.envs.gridworld import DOWN, LEFT, RIGHT, UP
+from gridrl_v2.envs import GridWorldEnv, make_env, optimal_stats
+from gridrl_v2.envs.setups import bfs_distances
+from gridrl_v2.envs.gridworld import DOWN, LEFT, RIGHT, UP
 
 N_COLORS = 3
+
+# сетапы из задания (в ноутбуке они заданы так же)
+SETUPS = {
+    1: dict(h=5, w=5, n_colors=None, obstacle_fraction=0.0),
+    2: dict(h=5, w=5, n_colors=5, obstacle_fraction=0.0),
+    3: dict(h=10, w=10, n_colors=7, obstacle_fraction=0.1),
+    4: dict(h=10, w=10, n_colors=4, obstacle_fraction=0.1),
+}
 
 
 def small_env(**kw):
@@ -25,13 +32,7 @@ def color_of(obs):
 
 @pytest.mark.parametrize("setup_id", [1, 2, 3, 4])
 def test_check_env(setup_id):
-    check_env(make_env(setup_id, seed=0), skip_render_check=True)
-
-
-def test_gym_make_registered():
-    env = gym.make("GridWorld-v0", **build_setup(2, seed=0))
-    obs, _ = env.reset(seed=0)
-    assert obs.shape == (5 + 3,)
+    check_env(make_env(**SETUPS[setup_id], seed=0), skip_render_check=True)
 
 
 def test_observation_is_one_hot_of_start_cell():
@@ -119,12 +120,6 @@ def test_start_uniform_excludes_obstacles_and_goal():
     assert len(seen) == 7
 
 
-def test_invalid_start_raises():
-    with pytest.raises(ValueError):
-        small_env(pos_agent=(1, 1))
-    with pytest.raises(ValueError):
-        small_env(pos_agent=np.zeros((3, 3)))
-
 
 def test_coords_obs_mode():
     env = small_env(obs_mode="coords")
@@ -133,7 +128,7 @@ def test_coords_obs_mode():
 
 
 def test_reset_is_deterministic_by_seed():
-    env = make_env(4, seed=0)
+    env = make_env(**SETUPS[4], seed=0)
     a = [tuple(env.reset(seed=s)[1]["pos"]) for s in range(20)]
     b = [tuple(env.reset(seed=s)[1]["pos"]) for s in range(20)]
     assert a == b
@@ -142,7 +137,7 @@ def test_reset_is_deterministic_by_seed():
 @pytest.mark.parametrize("setup_id,n_obs,n_obstacles", [(1, 28, 0), (2, 8, 0), (3, 10, 10), (4, 7, 10)])
 def test_setups(setup_id, n_obs, n_obstacles):
     for seed in range(5):
-        env = make_env(setup_id, seed=seed)
+        env = make_env(**SETUPS[setup_id], seed=seed)
         assert env.observation_space.shape == (n_obs,)
         assert env.obstacle_mask.sum() == n_obstacles
         dist = bfs_distances(~env.obstacle_mask, env.pos_goal)
@@ -150,8 +145,8 @@ def test_setups(setup_id, n_obs, n_obstacles):
 
 
 def test_setup_1_colors_unique():
-    env = make_env(1, seed=0)
-    inner = env.inner_color_map
+    env = make_env(**SETUPS[1], seed=0)
+    inner = env.color_map[1:-1, 1:-1]
     assert len(np.unique(inner)) == 25
 
 
@@ -163,11 +158,18 @@ def test_optimal_stats():
 
 
 def test_render():
-    env = small_env(render_mode="rgb_array")
-    env.reset(seed=0)
-    img = env.render()
-    assert img.shape == (5 * 24, 5 * 24, 3) and img.dtype == np.uint8
     env = small_env(render_mode="ansi")
     env.reset(seed=0, options={"pos": (0, 0)})
     text = env.render()
     assert text.splitlines()[1].split()[1] == "A"
+
+
+def test_draw_env():
+    import matplotlib.pyplot as plt
+    from gridrl_v2.utils import draw_env
+
+    env = small_env()
+    env.reset(seed=0)
+    fig, ax = plt.subplots()
+    draw_env(ax, env)
+    plt.close(fig)

@@ -36,27 +36,31 @@ for _ in range(10):
 ## Обучение и графики
 
 ```bash
-uv run python scripts/train_ppo.py --setup 2 --memory
-uv run python scripts/train_dsac.py --setup 2 --no-memory --no-soft-q
-uv run python scripts/plot_envs.py
-uv run python scripts/plot_training.py runs/<прогон1> runs/<прогон2> --labels MLP GRU --name setup2
+uv run python -m gridrl.utils.train_ppo --setup 2 --memory
+uv run python -m gridrl.utils.train_dsac --setup 2 --no-memory --no-soft-q
+uv run python -m gridrl.utils.plot_envs
+uv run python -m gridrl.utils.plot_training runs/<прогон1> runs/<прогон2> --labels MLP GRU --name setup2
+uv run python -m gridrl.utils.evaluate runs/<прогон> --episodes 100
 ```
 
 Логи обучения пишутся в `runs/<имя>/` (`metrics.csv`, `config.json`, `model.pt`), в git не попадают. Картинки для отчёта сохраняются в `outputs/`:
 - `outputs/envs/` — карты всех сетапов;
-- `outputs/plots/` — графики обучения: отдача, доля успехов, длина эпизода, лосс и его компоненты, энтропия, вероятность нежадного действия.
+- `outputs/plots/` — графики обучения: отдача, доля успехов, длина эпизода, лосс и его компоненты, энтропия, вероятность нежадного действия;
+- `outputs/eval/` — работа обученного агента: тепловая карта посещений за eval-эпизоды и GIF одного эпизода.
 
 Подробный разбор кода — в `docs/walkthrough.md`.
 
 ## Файлы
 
-- `src/gridrl/envs/gridworld.py` — среда: инициализация, старт эпизода, движение, наблюдения и отрисовка.
-- `src/gridrl/envs/setups.py` — генерация карт, четыре конфигурации из задания и расчёт кратчайших расстояний через BFS.
-- `src/gridrl/envs/__init__.py` — импорты и регистрация среды как `GridWorld-v0` в Gymnasium.
-- `src/gridrl/agents/networks.py` — сети: MLP или GRU и головы актора/критика.
-- `src/gridrl/agents/ppo.py`, `src/gridrl/agents/dsac.py` — алгоритмы обучения.
-- `src/gridrl/utils.py` — выбор устройства PyTorch, seed, разбор аргументов командной строки.
-- `scripts/` — запуск обучения и построение картинок.
+Активная версия кода — `src_v2/` (упрощённая). Первая версия лежит в `src/` для сравнения и не используется.
+
+
+- `src_v2/gridrl/envs/gridworld.py` — среда: инициализация, старт эпизода, движение, наблюдения и отрисовка.
+- `src_v2/gridrl/envs/setups.py` — генерация карт, четыре конфигурации из задания и расчёт кратчайших расстояний через BFS.
+- `src_v2/gridrl/envs/__init__.py` — импорты и регистрация среды как `GridWorld-v0` в Gymnasium.
+- `src_v2/gridrl/models/ppo.py`, `src_v2/gridrl/models/dsac.py` — алгоритмы обучения вместе с сетями (MLP или GRU).
+- `src_v2/gridrl/utils/__init__.py` — выбор устройства PyTorch, seed, разбор аргументов командной строки.
+- `src_v2/gridrl/utils/*.py` — скрипты: обучение, картинки сред, графики, eval.
 - `tests/test_gridworld.py` — проверки правил среды и совместимости с Gymnasium.
 
 ## Среда

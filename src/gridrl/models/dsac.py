@@ -15,9 +15,9 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch import nn
 from torch.distributions import Categorical
 
-from gridrl.agents.networks import Head
 from gridrl.envs import make_env, make_vec_env, optimal_stats
 from gridrl.utils import get_device, set_seed
 
@@ -51,6 +51,51 @@ class DSACConfig:
     device: str = "auto"
     run_dir: str = "runs"
     run_name: str = ""
+
+
+def make_layer(in_dim, out_dim, gain=np.sqrt(2)):
+    layer = nn.Linear(in_dim, out_dim)
+    nn.init.orthogonal_(layer.weight, gain)
+    nn.init.zeros_(layer.bias)
+    return layer
+
+
+def make_net(obs_dim, n_actions, hidden, memory, gain=1.0):
+    """Сеть — словарь слоёв: энкодер, память (GRU или MLP без памяти) и выход на n_actions.
+
+    Одна и та же форма используется для актора (логиты действий) и для критиков
+    (Q(s, a) сразу для всех действий). У каждой сети своя память.
+    """
+    in_dim = obs_dim + (n_actions if memory else 0)
+    if memory:
+        core = nn.GRUCell(hidden, hidden)
+    else:
+        core = nn.Sequential(make_layer(hidden, hidden), nn.Tanh())
+    return nn.ModuleDict({
+        "encoder": nn.Sequential(make_layer(in_dim, hidden), nn.Tanh()),
+        "memory": core,
+        "out": make_layer(hidden, n_actions, gain=gain),
+    })
+
+
+def net_step(net, obs, prev_a, starts, h):
+    """Один шаг для батча -> (выход, новая память). starts=1 обнуляет память."""
+    if isinstance(net["memory"], nn.GRUCell):
+        x = net["encoder"](torch.cat([obs, prev_a], dim=-1))
+        h = net["memory"](x, h * (1.0 - starts).unsqueeze(-1))
+        z = h
+    else:
+        z = net["memory"](net["encoder"](obs))
+    return net["out"](z), h
+
+
+def net_unroll(net, obs, prev_a, starts, h):
+    """Прогон по последовательности (T, B, ...) шаг за шагом -> выходы (T, B, n_actions)."""
+    outs = []
+    for t in range(obs.shape[0]):
+        out, h = net_step(net, obs[t], prev_a[t], starts[t], h)
+        outs.append(out)
+    return torch.stack(outs)
 
 
 class SequenceReplay:
@@ -123,12 +168,12 @@ def train_dsac(cfg):
         json.dumps({"algo": "dsac", **asdict(cfg), "optimal": reference}, indent=2)
     )
 
-    def make_net(gain):
-        return Head(obs_dim, n_actions, cfg.hidden, cfg.memory, gain=gain).to(device)
+    def new_net(gain):
+        return make_net(obs_dim, n_actions, cfg.hidden, cfg.memory, gain).to(device)
 
-    actor = make_net(0.01)
-    q1, q2 = make_net(1.0), make_net(1.0)
-    q1_target, q2_target = make_net(1.0), make_net(1.0)
+    actor = new_net(0.01)
+    q1, q2 = new_net(1.0), new_net(1.0)
+    q1_target, q2_target = new_net(1.0), new_net(1.0)
     q1_target.load_state_dict(q1.state_dict())
     q2_target.load_state_dict(q2.state_dict())
 
@@ -144,17 +189,17 @@ def train_dsac(cfg):
     def update():
         b = buffer.sample(cfg.batch_size, window, device)
         alpha = log_alpha.exp().detach()
-        h0 = actor.initial_state(cfg.batch_size, device)
+        h0 = torch.zeros(cfg.batch_size, cfg.hidden, device=device)
         cur = slice(cfg.burn_in, window - 1)  # шаги, на которых считается лосс
         nxt = slice(cfg.burn_in + 1, window)  # следующие за ними
 
         # --- критики ---
         with torch.no_grad():
-            logits_next, _ = actor.unroll(b["obs"], b["prev_a"], b["starts"], h0)
+            logits_next = net_unroll(actor, b["obs"], b["prev_a"], b["starts"], h0)
             pi_next = F.softmax(logits_next[nxt], -1)
             logpi_next = F.log_softmax(logits_next[nxt], -1)
-            q1t, _ = q1_target.unroll(b["obs"], b["prev_a"], b["starts"], h0)
-            q2t, _ = q2_target.unroll(b["obs"], b["prev_a"], b["starts"], h0)
+            q1t = net_unroll(q1_target, b["obs"], b["prev_a"], b["starts"], h0)
+            q2t = net_unroll(q2_target, b["obs"], b["prev_a"], b["starts"], h0)
             min_q_next = torch.min(q1t[nxt], q2t[nxt])
             if cfg.soft_q:
                 v_next = (pi_next * (min_q_next - alpha * logpi_next)).sum(-1)
@@ -164,8 +209,8 @@ def train_dsac(cfg):
             # на шаге обрыва по времени следующего наблюдения в буфере нет — не учимся на нём
             mask = 1.0 - b["truncated"][cur]
 
-        q1_all, _ = q1.unroll(b["obs"], b["prev_a"], b["starts"], h0)
-        q2_all, _ = q2.unroll(b["obs"], b["prev_a"], b["starts"], h0)
+        q1_all = net_unroll(q1, b["obs"], b["prev_a"], b["starts"], h0)
+        q2_all = net_unroll(q2, b["obs"], b["prev_a"], b["starts"], h0)
         a = b["actions"][cur].unsqueeze(-1)
         q1_a = q1_all[cur].gather(-1, a).squeeze(-1)
         q2_a = q2_all[cur].gather(-1, a).squeeze(-1)
@@ -176,7 +221,7 @@ def train_dsac(cfg):
         q_opt.step()
 
         # --- актор ---
-        logits, _ = actor.unroll(b["obs"], b["prev_a"], b["starts"], h0)
+        logits = net_unroll(actor, b["obs"], b["prev_a"], b["starts"], h0)
         pi = F.softmax(logits[cur], -1)
         logpi = F.log_softmax(logits[cur], -1)
         min_q = torch.min(q1_all[cur], q2_all[cur]).detach()
@@ -212,7 +257,7 @@ def train_dsac(cfg):
     obs = torch.as_tensor(obs_np, device=device)
     prev_a = torch.zeros(n_envs, n_actions, device=device)
     starts = torch.ones(n_envs, device=device)
-    h = actor.initial_state(n_envs, device)
+    h = torch.zeros(n_envs, cfg.hidden, device=device)
     ep_len = np.zeros(n_envs, dtype=np.int64)
 
     global_step, vec_step, next_log = 0, 0, cfg.log_every
@@ -223,7 +268,7 @@ def train_dsac(cfg):
 
     while global_step < cfg.total_steps:
         with torch.no_grad():
-            logits, h = actor.step(obs, prev_a, starts, h)
+            logits, h = net_step(actor, obs, prev_a, starts, h)
         dist = Categorical(logits=logits)
         action = dist.sample()
         greedy_prob.append(dist.probs.max(-1).values.mean().item())

@@ -186,7 +186,7 @@ class GridWorldEnv(gym.Env):
             raise ValueError("pos_agent не оставляет ни одной допустимой стартовой клетки")
         return (weights / total).ravel()
 
-    def _render_rgb(self, cell_px=24):
+    def _render_rgb(self, cell_px=24, draw_agent=True):
         hues = np.linspace(0.0, 1.0, self.n_colors, endpoint=False)
         floor_rgb = [colorsys.hsv_to_rgb(h, 0.35, 0.95) for h in hues]
         palette = np.concatenate([
@@ -198,6 +198,8 @@ class GridWorldEnv(gym.Env):
         img[::cell_px, :] = img[::cell_px, :] * 0.8
         img[:, ::cell_px] = img[:, ::cell_px] * 0.8
 
+        if not draw_agent:
+            return img
         r, c = self._pos
         yy, xx = np.mgrid[:cell_px, :cell_px]
         center = (cell_px - 1) / 2

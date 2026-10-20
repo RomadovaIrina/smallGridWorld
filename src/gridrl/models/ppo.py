@@ -15,9 +15,9 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch import nn
 from torch.distributions import Categorical
 
-from gridrl.agents.networks import ActorCritic
 from gridrl.envs import make_env, make_vec_env, optimal_stats
 from gridrl.utils import get_device, set_seed
 
@@ -46,6 +46,54 @@ class PPOConfig:
     device: str = "auto"
     run_dir: str = "runs"
     run_name: str = ""
+
+
+def make_layer(in_dim, out_dim, gain=np.sqrt(2)):
+    """Linear с ортогональной инициализацией, как принято в PPO."""
+    layer = nn.Linear(in_dim, out_dim)
+    nn.init.orthogonal_(layer.weight, gain)
+    nn.init.zeros_(layer.bias)
+    return layer
+
+
+def make_model(obs_dim, n_actions, hidden, memory):
+    """Сеть — словарь слоёв: энкодер, память (GRU или MLP без памяти), актор и критик.
+
+    С памятью на вход подаётся ещё предыдущее действие (one-hot).
+    Голова актора с маленькими весами: в начале все действия почти равновероятны.
+    """
+    in_dim = obs_dim + (n_actions if memory else 0)
+    if memory:
+        core = nn.GRUCell(hidden, hidden)
+    else:
+        core = nn.Sequential(make_layer(hidden, hidden), nn.Tanh())
+    return nn.ModuleDict({
+        "encoder": nn.Sequential(make_layer(in_dim, hidden), nn.Tanh()),
+        "memory": core,
+        "actor": make_layer(hidden, n_actions, gain=0.01),
+        "critic": make_layer(hidden, 1, gain=1.0),
+    })
+
+
+def model_step(model, obs, prev_a, starts, h):
+    """Один шаг для батча сред -> (логиты, V, новая память). starts=1 обнуляет память."""
+    if isinstance(model["memory"], nn.GRUCell):
+        x = model["encoder"](torch.cat([obs, prev_a], dim=-1))
+        h = model["memory"](x, h * (1.0 - starts).unsqueeze(-1))
+        z = h
+    else:
+        z = model["memory"](model["encoder"](obs))
+    return model["actor"](z), model["critic"](z).squeeze(-1), h
+
+
+def model_unroll(model, obs, prev_a, starts, h):
+    """Прогон по последовательности (T, B, ...) шаг за шагом."""
+    all_logits, all_values = [], []
+    for t in range(obs.shape[0]):
+        logits, value, h = model_step(model, obs[t], prev_a[t], starts[t], h)
+        all_logits.append(logits)
+        all_values.append(value)
+    return torch.stack(all_logits), torch.stack(all_values)
 
 
 def compute_gae(rewards, values, dones, next_value, gamma, lam):
@@ -82,7 +130,7 @@ def train_ppo(cfg):
         json.dumps({"algo": "ppo", **asdict(cfg), "optimal": reference}, indent=2)
     )
 
-    model = ActorCritic(obs_dim, n_actions, cfg.hidden, cfg.memory).to(device)
+    model = make_model(obs_dim, n_actions, cfg.hidden, cfg.memory).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, eps=1e-5)
 
     # Буферы роллаута, форма (T, N, ...).
@@ -99,7 +147,7 @@ def train_ppo(cfg):
     obs = torch.as_tensor(obs_np, device=device)
     prev_a = torch.zeros(n_envs, n_actions, device=device)
     starts = torch.ones(n_envs, device=device)
-    h = model.initial_state(n_envs, device)
+    h = torch.zeros(n_envs, cfg.hidden, device=device)
     ep_len = np.zeros(n_envs, dtype=np.int64)
 
     num_updates = cfg.total_steps // (n_envs * T)
@@ -119,7 +167,7 @@ def train_ppo(cfg):
         for t in range(T):
             buf_obs[t], buf_prev_a[t], buf_starts[t] = obs, prev_a, starts
             with torch.no_grad():
-                logits, value, h = model.step(obs, prev_a, starts, h)
+                logits, value, h = model_step(model, obs, prev_a, starts, h)
             dist = Categorical(logits=logits)
             action = dist.sample()
             buf_actions[t], buf_logp[t], buf_values[t] = action, dist.log_prob(action), value
@@ -139,8 +187,8 @@ def train_ppo(cfg):
                     np.stack(info["final_obs"][trunc]), dtype=torch.float32, device=device
                 )
                 with torch.no_grad():
-                    _, v_final, _ = model.step(
-                        final_obs, action_1h[idx], torch.zeros(len(idx), device=device), h[idx]
+                    _, v_final, _ = model_step(
+                        model, final_obs, action_1h[idx], torch.zeros(len(idx), device=device), h[idx]
                     )
                 reward[idx] += cfg.gamma * v_final
 
@@ -160,7 +208,7 @@ def train_ppo(cfg):
 
         # --- 2. преимущества ----------------------------------------------------
         with torch.no_grad():
-            _, next_value, _ = model.step(obs, prev_a, starts, h)
+            _, next_value, _ = model_step(model, obs, prev_a, starts, h)
         advantages, returns = compute_gae(
             buf_rewards, buf_values, buf_dones, next_value, cfg.gamma, cfg.gae_lambda
         )
@@ -171,8 +219,8 @@ def train_ppo(cfg):
             perm = torch.randperm(n_envs, device=device)
             for start in range(0, n_envs, mb_envs):
                 mb = perm[start:start + mb_envs]
-                logits, values, _ = model.unroll(
-                    buf_obs[:, mb], buf_prev_a[:, mb], buf_starts[:, mb], h_init[mb]
+                logits, values = model_unroll(
+                    model, buf_obs[:, mb], buf_prev_a[:, mb], buf_starts[:, mb], h_init[mb]
                 )
                 dist = Categorical(logits=logits)
                 new_logp = dist.log_prob(buf_actions[:, mb])

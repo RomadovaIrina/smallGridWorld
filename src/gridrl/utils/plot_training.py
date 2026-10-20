@@ -1,7 +1,7 @@
 """Графики обучения по runs/<имя>/metrics.csv. Несколько прогонов рисуются на одних осях.
 
-    uv run python scripts/plot_training.py runs/ppo_s2_gru runs/ppo_s2_mlp --name ppo_s2
-    uv run python scripts/plot_training.py runs/dsac_s2_gru --labels GRU
+    uv run python -m gridrl.utils.plot_training runs/ppo_s2_gru runs/ppo_s2_mlp --name ppo_s2
+    uv run python -m gridrl.utils.plot_training runs/dsac_s2_gru --labels GRU
 
 Картинка сохраняется в outputs/plots/<name>.png.
 """
