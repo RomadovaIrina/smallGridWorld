@@ -64,6 +64,13 @@ class GridWorldEnv(gym.Env):
             weights = allowed.astype(float)
         elif np.shape(pos_agent) == (2,):
             weights = np.zeros((self.h, self.w))
+            # Проверим а не хотим ли мы случайно посадить агента за карту
+            if not (0 <= r < self.h and 0 <= c < self.w):
+                raise ValueError("Start position is out of bounds")
+            # Или в препятствие или целевую точку :)
+            if not allowed[r, c]:
+                raise ValueError("Start position is blocked or is the goal")
+                
             weights[pos_agent[0], pos_agent[1]] = 1.0
         else:
             weights = np.where(allowed, pos_agent, 0.0)
