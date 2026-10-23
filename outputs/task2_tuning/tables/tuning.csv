@@ -1,0 +1,17 @@
+run,converged,episodes,env_steps,time_min,greedy_success,greedy_length,optimal_length
+dsac_env3_gru_seed0,True,2000,281115,49.9,0.95,28.0,7.47
+dsac_env3_gru_alpha0.01,True,2000,130534,37.5,1.0,14.3,7.47
+dsac_env3_gru_alpha0.02,True,2000,276522,56.0,0.0,400.0,7.47
+dsac_env3_gru_alpha0.05,True,2000,528732,74.1,0.0,400.0,7.47
+ppo_env3_gru_seed0,True,2100,53095,1.9,0.98,18.2,7.47
+ppo_env3_gru_ent0.001,True,2000,50252,2.0,1.0,9.3,7.47
+ppo_env3_gru_ent0.03,True,2000,51500,2.2,1.0,9.4,7.47
+ppo_env3_gru_ent0.1,True,2300,71928,3.0,1.0,10.4,7.47
+dsac_env4_gru_seed0,True,2100,549379,82.8,0.52,196.6,7.47
+dsac_env4_gru_alpha0.01,True,2400,259857,56.7,1.0,10.9,7.47
+dsac_env4_gru_alpha0.02,True,2000,280842,56.4,0.0,400.0,7.47
+dsac_env4_gru_alpha0.05,True,2000,529983,73.8,0.0,400.0,7.47
+ppo_env4_gru_seed0,True,2000,52429,1.9,1.0,9.6,7.47
+ppo_env4_gru_ent0.001,True,2000,49687,1.9,1.0,8.8,7.47
+ppo_env4_gru_ent0.03,True,2300,57444,2.3,1.0,10.2,7.47
+ppo_env4_gru_ent0.1,True,2000,60617,2.3,1.0,9.9,7.47

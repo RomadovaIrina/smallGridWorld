@@ -1,0 +1,7 @@
+config,seeds,greedy_success_mean,greedy_success_std,greedy_length_mean,greedy_length_std,stochastic_success_mean,stochastic_success_std,stochastic_length_mean,stochastic_length_std,optimal_length
+ppo_mnist_env2_gru,3,1.0,0.0,5.9,0.4,1.0,0.0,6.1,0.6,3.54
+dsac_mnist_env2_gru,3,0.65,0.42,39.3,39.8,0.753,0.245,36.1,31.9,3.54
+ppo_mnist_env3_gru,3,1.0,0.0,13.2,1.0,1.0,0.0,13.9,0.9,7.47
+dsac_mnist_env3_gru,3,0.92,0.08,51.4,36.1,1.0,0.0,34.7,7.7,7.47
+ppo_mnist_env4_gru,3,1.0,0.0,9.7,0.2,1.0,0.0,9.8,0.2,7.47
+dsac_mnist_env4_gru,3,0.013,0.019,398.7,1.9,0.243,0.082,356.0,18.1,7.47

@@ -21,16 +21,10 @@ dev = [
     "pytest>=8",
 ]
 
-[build-system]
-requires = ["uv_build>=0.8,<1"]
-build-backend = "uv_build"
-
-# активная версия кода — src_v2/gridrl_v2; старые версии лежат рядом для сравнения
-[tool.uv.build-backend]
-module-root = "src_v2"
-module-name = "gridrl_v2"
-
+# код лежит в папке src/ и импортируется как `from src.envs import make_env` из корня репозитория;
+# проект не устанавливается как пакет, uv ставит только зависимости
 [tool.uv]
+package = false
 conflicts = [[{ extra = "cpu" }, { extra = "cu126" }]]
 
 [tool.uv.sources]

@@ -1,0 +1,20 @@
+эксперименты: ppo_env1_gru_seed0 dsac_env1_gru_seed0 ppo_env1_mlp_seed0 dsac_env1_mlp_seed0 ppo_env2_gru_seed0 dsac_env2_gru_seed0 ppo_env2_mlp_seed0 dsac_env2_mlp_seed0 ppo_env3_gru_seed0 dsac_env3_gru_seed0 ppo_env3_mlp_seed0 dsac_env3_mlp_seed0 ppo_env4_gru_seed0 dsac_env4_gru_seed0 ppo_env4_mlp_seed0 dsac_env4_mlp_seed0 dsac_env2_gru_hardq_seed0 dsac_env4_gru_hardq_seed0
+готово: ppo_env2_mlp_seed0
+готово: ppo_env1_gru_seed0
+готово: dsac_env1_mlp_seed0
+готово: dsac_env2_gru_seed0
+готово: dsac_env1_gru_seed0
+готово: dsac_env2_mlp_seed0
+готово: ppo_env2_gru_seed0
+готово: dsac_env2_gru_hardq_seed0
+готово: ppo_env1_mlp_seed0
+готово: ppo_env3_mlp_seed0
+готово: ppo_env4_mlp_seed0
+готово: ppo_env4_gru_seed0
+готово: ppo_env3_gru_seed0
+готово: dsac_env3_gru_seed0
+готово: dsac_env4_gru_hardq_seed0
+готово: dsac_env4_gru_seed0
+готово: dsac_env4_mlp_seed0
+готово: dsac_env3_mlp_seed0
+графики готовы

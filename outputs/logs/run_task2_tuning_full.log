@@ -1,0 +1,14 @@
+эксперименты: dsac_env3_gru_alpha0.01 dsac_env3_gru_alpha0.02 dsac_env3_gru_alpha0.05 ppo_env3_gru_ent0.001 ppo_env3_gru_ent0.03 ppo_env3_gru_ent0.1 dsac_env4_gru_alpha0.01 dsac_env4_gru_alpha0.02 dsac_env4_gru_alpha0.05 ppo_env4_gru_ent0.001 ppo_env4_gru_ent0.03 ppo_env4_gru_ent0.1
+готово: ppo_env4_gru_ent0.001
+готово: ppo_env3_gru_ent0.001
+готово: ppo_env3_gru_ent0.03
+готово: ppo_env4_gru_ent0.03
+готово: ppo_env4_gru_ent0.1
+готово: ppo_env3_gru_ent0.1
+готово: dsac_env3_gru_alpha0.01
+готово: dsac_env4_gru_alpha0.01
+готово: dsac_env4_gru_alpha0.02
+готово: dsac_env3_gru_alpha0.02
+готово: dsac_env4_gru_alpha0.05
+готово: dsac_env3_gru_alpha0.05
+графики готовы

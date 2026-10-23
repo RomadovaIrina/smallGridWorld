@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from gymnasium.utils.env_checker import check_env
 
-from gridrl_v2.envs import MnistGridWorldEnv, make_env
-from gridrl_v2.envs.gridworld import RIGHT, UP
+from src.envs import MnistGridWorldEnv, make_env
+from src.envs.gridworld import RIGHT, UP
 
 # вместо MNIST — фейковые «картинки»: у цифры k все пиксели равны k / 10, по 3 картинки на цифру
 FAKE_IMAGES = [np.full((3, 196), k / 10, dtype=np.float32) for k in range(10)]

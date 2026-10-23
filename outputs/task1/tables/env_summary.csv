@@ -1,0 +1,5 @@
+env,size,floor_colors,obstacles,free_cells,cells_per_color,max_steps,longest_path,oracle_length,oracle_return,random_success,random_length,random_return
+Env1,5x5,25,0,25,1.0,100,6,3.33,0.977,0.88,44.8,0.633
+Env2,5x5,5,0,25,5.0,100,7,3.54,0.975,0.79,48.4,0.584
+Env3,10x10,7,10,90,12.86,400,14,7.47,0.938,0.6,259.7,0.188
+Env4,10x10,4,10,90,22.5,400,14,7.47,0.938,0.6,259.7,0.188

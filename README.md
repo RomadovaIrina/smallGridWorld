@@ -1,83 +1,108 @@
-# RL for GridWorld
+# RL для GridWorld
 
-Реализованы клеточная среда GridWorld с наблюдением цвета клетки, четыре конфигурации карт и два агента: PPO (on-policy) и Discrete SAC (off-policy), каждый в вариантах без памяти (MLP) и с памятью (GRU). Реализация наивная, без оптимизаций скорости.
+Тестовое задание по обучению с подкреплением: клеточная среда GridWorld, в которой агент видит только цвет своей клетки,
+агенты PPO и Discrete SAC (с памятью GRU и без неё) и версия среды, где цвет показывается картинкой цифры из MNIST.
 
 Автор: _ФИО_
 
-## Установка и тесты
+Код написан с помощью ИИ-ассистента (задание это разрешает) и разобран мной; подробности и ограничения — в `report.md`.
 
-Нужен [uv](https://docs.astral.sh/uv/). Версия Python указана в `.python-version`.
+## Структура
+
+```
+src/
+  envs/
+    gridworld.py   среда GridWorldEnv: наблюдение — one-hot цвета клетки
+    mnist_env.py   MnistGridWorldEnv: копия среды, цвет показывается картинкой цифры MNIST 14x14
+    setups.py      make_env (случайная карта по seed), BFS, оптимум (oracle)
+  models/
+    ppo.py         PPO: актор-критик с GAE, сеть с памятью (GRU) или без (MLP)
+    dsac.py        Discrete SAC: два критика, target-критики, мягкая или обычная Q
+  utils.py         сохранение прогонов, картинки: карта, тепловая карта посещений, GIF
+tasks/
+  task1.ipynb         задача 1: среда, проверки, карты, характеристики сред
+  task2.ipynb         задача 2, первая версия: фиксированное число эпизодов (DSAC на 10x10 не доучен)
+  task3.ipynb         задача 3, первая версия: MNIST-наблюдения
+  task2_v2.ipynb      задача 2, этап 2: обучение до схождения (seed 0)
+  task3_v2.ipynb      задача 3, этап 2: то же для MNIST
+  task2_tuning.ipynb  перебор alpha (DSAC) и ent_coef (PPO) на картах 10x10
+  task2_v3.ipynb      задача 2, этап 3: одинаковый бюджет шагов, лучшие параметры, 3 сида — основное сравнение
+  task3_v3.ipynb      задача 3, этап 3: то же для MNIST
+outputs/           все результаты (см. ниже)
+report.md          отчёт
+```
+
+## Установка
+
+Нужен Python 3.11+.
 
 ```bash
-uv sync --extra cpu      # без NVIDIA GPU
-uv sync --extra cu126    # с NVIDIA GPU
-uv run pytest
+pip install torch gymnasium numpy matplotlib jupyter
 ```
 
-## Пример
+Для видеокарты NVIDIA — сборка torch с CUDA, например `pip install torch --index-url https://download.pytorch.org/whl/cu126`.
+Ноутбуки сами используют CUDA, если она доступна (DSAC на ней в ~3 раза быстрее, PPO — нет).
+MNIST скачивается сам при первом запуске в `data/mnist` (~10 МБ).
 
-```python
-from gridrl.envs import make_env
+## Запуск
 
-env = make_env(2, seed=42, render_mode="ansi")
-obs, info = env.reset(seed=42)
-print(env.render())
+Ноутбуки запускаются из папки `tasks/` или из корня репозитория, по порядку:
 
-for _ in range(10):
-    action = env.action_space.sample()
-    obs, reward, terminated, truncated, info = env.step(action)
-    print(env.render())
-    if terminated or truncated:
-        break
-```
+1. `task1.ipynb` — без обучения, около минуты.
+2. `task2.ipynb`, `task3.ipynb` — первая версия экспериментов (история).
+3. `task2_v2.ipynb`, `task3_v2.ipynb` — обучение до схождения.
+4. `task2_tuning.ipynb` — перебор параметра исследования; использует результаты `task2_v2`.
+5. `task2_v3.ipynb`, `task3_v3.ipynb` — основное сравнение; берут параметры из перебора и бюджет из этапа 2.
 
-Здесь действия случайные, обучения нет.
+Последовательно всё это — много часов (DSAC на картах 10x10 самый долгий); на сервере все прогоны шли параллельно, всего ~9 часов.
 
-## Обучение и графики
+Уже завершённые прогоны (`status.json` = `completed`) ноутбук пропускает, поэтому его можно перезапускать.
+
+### Без Jupyter и параллельно
+
+Ноутбук управляется переменными окружения:
+
+- `RUN_MODE=full|smoke` — полное обучение или короткая проверка (smoke пишет в `runs/smoke/`, не смешиваясь с полными результатами);
+- `RUN_ONLY=<имя эксперимента>` — обучить только один эксперимент (имена печатает ячейка «Список экспериментов»);
+- `RUN_STAGES=train,plots` — что делать: обучение, графики или оба.
+
+Пример: один эксперимент, затем графики по всем сохранённым прогонам:
 
 ```bash
-uv run python -m gridrl.utils.train_ppo --setup 2 --memory
-uv run python -m gridrl.utils.train_dsac --setup 2 --no-memory --no-soft-q
-uv run python -m gridrl.utils.plot_envs
-uv run python -m gridrl.utils.plot_training runs/<прогон1> runs/<прогон2> --labels MLP GRU --name setup2
-uv run python -m gridrl.utils.evaluate runs/<прогон> --episodes 100
+RUN_MODE=full RUN_ONLY=ppo_env3_gru_seed0 RUN_STAGES=train jupyter nbconvert --to notebook --execute \
+    --ExecutePreprocessor.timeout=-1 --output-dir outputs/notebooks --output task2_ppo_env3 tasks/task2.ipynb
+RUN_MODE=full RUN_STAGES=plots jupyter nbconvert --to notebook --execute \
+    --ExecutePreprocessor.timeout=-1 --output-dir outputs/notebooks --output task2 tasks/task2.ipynb
 ```
 
-Логи обучения пишутся в `runs/<имя>/` (`metrics.csv`, `config.json`, `model.pt`), в git не попадают. Картинки для отчёта сохраняются в `outputs/`:
-- `outputs/envs/` — карты всех сетапов;
-- `outputs/plots/` — графики обучения: отдача, доля успехов, длина эпизода, лосс и его компоненты, энтропия, вероятность нежадного действия;
-- `outputs/eval/` — работа обученного агента: тепловая карта посещений за eval-эпизоды и GIF одного эпизода.
+Так эксперименты запускались на арендованном сервере (RTX 3090, 28 ядер CPU): каждый отдельным процессом, все параллельно.
 
-Подробный разбор кода — в `docs/walkthrough.md`.
+### Графики заново без обучения
 
-## Файлы
+Все графики строятся по сохранённым `metrics.csv`: запустить ноутбук с `RUN_STAGES=plots`.
 
-Активная версия кода — `src_v2/` (упрощённая). Первая версия лежит в `src/` для сравнения и не используется.
+## Результаты
 
+```
+outputs/
+  task1/        figures/ (карты, BFS), tables/env_summary.csv, validation/checks.csv
+  task2/, task3/                 первая версия: runs/<прогон>/, figures/, eval/ (тепловые карты и GIF), tables/
+  task2_v2/, task3_v2/           этап 2: до схождения; tables/convergence.csv
+  task2_tuning/                  перебор alpha и ent_coef; tables/tuning.csv, figures/*_sweep.png
+  task2_v3/, task3_v3/           этап 3: 3 сида; tables/eval_seeds.csv (среднее и разброс по сидам)
+  logs/         логи запусков; logs/checkpoints/ — копии весов и логов всех прогонов
+  notebooks/    выполненные копии ноутбуков
+  summary.csv   сводка по всем прогонам: статус, бюджет, шаги, время, итоговая оценка
+```
 
-- `src_v2/gridrl/envs/gridworld.py` — среда: инициализация, старт эпизода, движение, наблюдения и отрисовка.
-- `src_v2/gridrl/envs/setups.py` — генерация карт, четыре конфигурации из задания и расчёт кратчайших расстояний через BFS.
-- `src_v2/gridrl/envs/__init__.py` — импорты и регистрация среды как `GridWorld-v0` в Gymnasium.
-- `src_v2/gridrl/models/ppo.py`, `src_v2/gridrl/models/dsac.py` — алгоритмы обучения вместе с сетями (MLP или GRU).
-- `src_v2/gridrl/utils/__init__.py` — выбор устройства PyTorch, seed, разбор аргументов командной строки.
-- `src_v2/gridrl/utils/*.py` — скрипты: обучение, картинки сред, графики, eval.
-- `tests/test_gridworld.py` — проверки правил среды и совместимости с Gymnasium.
+В папке прогона: `config.json` (все параметры, бюджет `full`/`smoke`, оптимум), `metrics.csv` (одна строка на эпизод,
+записывается по ходу обучения), `model.pt` (веса), `eval.json` (итоговая оценка), `status.json` (`running`/`completed`/`failed`),
+`train.log`.
 
-## Среда
+## Что сделано
 
-- Действия: 0 вверх, 1 вправо, 2 вниз, 3 влево.
-- Цвета пола: `0..n_colors-1`, далее цель, препятствие и стена.
-- Наблюдение — one-hot вектор длины `n_colors + 3`.
-- Награда 1 за достижение цели, иначе 0. При достижении цели эпизод завершается.
-- При `see_obstacle=True` столкновение даёт наблюдение цвета преграды, позиция не меняется. При `False` агент видит цвет своей клетки.
-- `obs_mode="coords"` даёт one-hot позиции для отладки.
-- Координаты в `info` предназначены для отладки и не должны подаваться агенту при обучении по цветам.
-
-## Принятые допущения
-
-- Лимит эпизода — `4 * h * w` шагов.
-- Все входные карты, включая веса `pos_agent`, имеют форму `(h, w)`.
-- При генерации конфигурации цель выбирается случайно и остаётся фиксированной в созданной среде.
-- По умолчанию старт выбирается равномерно среди свободных клеток, кроме цели.
-- Случайные препятствия генерируются так, чтобы свободные клетки были связны.
-- `make_env(..., seed=...)` задаёт генерацию карты и цели, а `env.reset(seed=...)` — выбор старта.
+- Задача 1 — среда со всеми параметрами из задания, четыре сетапа, проверки (`tasks/task1.ipynb`).
+- Задача 2 — PPO с GAE и Discrete SAC с переключателем мягкой Q; сравнения с памятью и без, PPO и DSAC, `soft_q`; графики из задания; тепловые карты и GIF. Основное сравнение — при одинаковом бюджете шагов, после обучения до схождения и подбора параметра исследования, на 3 сидах.
+- Задача 3 — MNIST-версия среды, сравнение one-hot и MNIST, ответы на вопросы.
+- Задача 4 (векторизация) — **не сделана**, отложена из-за нехватки времени.
+- Динамическая температура τ(u) (расширение из задачи 2) — не сделана.

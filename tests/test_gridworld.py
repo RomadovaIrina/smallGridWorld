@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 from gymnasium.utils.env_checker import check_env
 
-from gridrl_v2.envs import GridWorldEnv, make_env, optimal_stats
-from gridrl_v2.envs.setups import bfs_distances
-from gridrl_v2.envs.gridworld import DOWN, LEFT, RIGHT, UP
+from src.envs import GridWorldEnv, make_env, optimal_stats
+from src.envs.setups import bfs_distances
+from src.envs.gridworld import DOWN, LEFT, RIGHT, UP
 
 N_COLORS = 3
 
@@ -166,7 +166,7 @@ def test_render():
 
 def test_draw_env():
     import matplotlib.pyplot as plt
-    from gridrl_v2.utils import draw_env
+    from src.utils import draw_env
 
     env = small_env()
     env.reset(seed=0)

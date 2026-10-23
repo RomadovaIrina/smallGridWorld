@@ -1,0 +1,8 @@
+эксперименты: ppo_mnist_env2_gru_seed0 dsac_mnist_env2_gru_seed0 ppo_mnist_env3_gru_seed0 dsac_mnist_env3_gru_seed0 ppo_mnist_env4_gru_seed0 dsac_mnist_env4_gru_seed0
+готово: ppo_mnist_env2_gru_seed0
+готово: ppo_mnist_env4_gru_seed0
+готово: ppo_mnist_env3_gru_seed0
+готово: dsac_mnist_env2_gru_seed0
+готово: dsac_mnist_env3_gru_seed0
+готово: dsac_mnist_env4_gru_seed0
+графики готовы

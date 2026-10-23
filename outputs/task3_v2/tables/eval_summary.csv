@@ -1,0 +1,13 @@
+run,eval,success_rate,mean_return,mean_length,failures,optimal_length
+ppo_mnist_env2_gru_seed0,greedy,1.0,0.957,5.4,0,3.54
+ppo_mnist_env2_gru_seed0,stochastic,1.0,0.954,5.7,0,3.54
+dsac_mnist_env2_gru_seed0,greedy,1.0,0.963,4.8,0,3.54
+dsac_mnist_env2_gru_seed0,stochastic,1.0,0.96,5.1,0,3.54
+ppo_mnist_env3_gru_seed0,greedy,1.0,0.867,16.3,0,7.47
+ppo_mnist_env3_gru_seed0,stochastic,1.0,0.846,18.9,0,7.47
+dsac_mnist_env3_gru_seed0,greedy,1.0,0.901,11.7,0,7.47
+dsac_mnist_env3_gru_seed0,stochastic,1.0,0.895,12.4,0,7.47
+ppo_mnist_env4_gru_seed0,greedy,1.0,0.883,13.7,0,7.47
+ppo_mnist_env4_gru_seed0,stochastic,1.0,0.868,15.6,0,7.47
+dsac_mnist_env4_gru_seed0,greedy,0.07,0.069,372.2,93,7.47
+dsac_mnist_env4_gru_seed0,stochastic,0.07,0.069,372.2,93,7.47

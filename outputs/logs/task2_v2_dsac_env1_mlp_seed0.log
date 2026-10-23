@@ -1,0 +1,3 @@
+[NbConvertApp] Converting notebook tasks/task2_v2.ipynb to notebook
+[IPKernelApp] WARNING | Kernel is running over TCP without encryption. All communication (including code and outputs) is sent in plain text and is susceptible to eavesdropping. Use IPC transport or launch with kernel manager-provisioned CurveZMQ keys to enable transport encryption.
+[NbConvertApp] Writing 24046 bytes to outputs/notebooks/task2_v2_dsac_env1_mlp_seed0.ipynb
